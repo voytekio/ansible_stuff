@@ -1,0 +1,37 @@
+---
+- hosts: labhosts
+
+  vars:
+    foo: bar
+
+  tasks:
+  - name: cmd-hostname
+    command:
+      cmd: 'hostname'
+    register: response
+
+  - name: dir-/etc/baseline
+    become: yes
+    file:
+      path: /etc/baseline
+      state: directory
+      mode: '0755'
+
+  - name: filetemplate-/etc/baseline/bashrc
+    become: yes
+    template:
+      src: templates/bashrc
+      dest: /etc/baseline/bashrc
+      owner: root
+      group: root
+      mode: '0644'
+
+  - name: blockinsert-/etc/bash.bashrc
+    become: yes
+    blockinfile:
+      path: /etc/bash.bashrc
+      block: |
+        # append cm-based rc files:
+        if [ -f /etc/baseline/bashrc ]; then
+           source /etc/baseline/bashrc
+        fi
