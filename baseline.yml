@@ -35,3 +35,42 @@
         if [ -f /etc/baseline/bashrc ]; then
            source /etc/baseline/bashrc
         fi
+
+  - name: check-folders-/installers
+    stat:
+      path: /installers
+    register: result_check_installers
+
+  - name: show-check-folders
+    debug:
+      msg: 'stats result: {{ result_check_installers }}'
+
+  - name: dir-create-/srv/installers
+    become: yes
+    file:
+      path: /srv/installers
+      state: directory
+      mode: '0755'
+    when: not result_check_installers.stat.exists
+
+  - name: symlink-create-/installers-pointingto-/srv/installers
+    become: yes
+    file:
+      src: /srv/installers
+      dest: /installers
+      owner: root
+      group: root
+      state: link
+      force: yes
+    when: not result_check_installers.stat.exists
+
+  - name: symlink-create-/srv/installers-pointingto-/installers
+    become: yes
+    file:
+      src: /installers
+      dest: /srv/installers
+      owner: root
+      group: root
+      state: link
+      force: yes
+    when: result_check_installers.stat.exists
