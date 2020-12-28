@@ -1,5 +1,5 @@
 ---
-- hosts: labhosts
+- hosts: labhosts,prodhosts
 
   vars:
     foo: bar
@@ -73,4 +73,6 @@
       group: root
       state: link
       force: yes
-    when: result_check_installers.stat.exists
+    when:
+      - result_check_installers.stat.exists
+      - result_check_installers.stat.isdir
