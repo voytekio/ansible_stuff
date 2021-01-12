@@ -3,6 +3,13 @@
 
   vars:
     foo: bar
+    package_list:
+      - at
+      - vim
+      - curl
+      - python-pip
+      - git
+
 
   tasks:
   - name: cmd-hostname
@@ -76,3 +83,15 @@
     when:
       - result_check_installers.stat.exists
       - result_check_installers.stat.isdir
+
+  # TODO: chain this to run as a Prerequisite for package-installs
+  - name: cmd-update-repo-catalog
+    become: yes
+    command:
+      cmd: 'apt-get update'
+
+  - name: package-installs
+    become: yes
+    package:
+      name: "{{ package_list }}"
+      state: present
