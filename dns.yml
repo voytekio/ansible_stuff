@@ -1,0 +1,24 @@
+---
+- hosts: dns_servers
+
+  vars:
+    foo: bar
+    package_list_dns:
+      - bind
+      - bind-utils
+    package_list_ubuntu:
+      - python-pip
+      - need-to-make-this-work
+
+
+  tasks:
+  - name: cmd-hostname
+    command:
+      cmd: 'hostname'
+    register: response
+
+  - name: package-installs
+    become: yes
+    package:
+      name: "{{ package_list_dns }}"
+      state: present

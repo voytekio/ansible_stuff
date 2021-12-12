@@ -1,5 +1,5 @@
 ---
-- hosts: labhosts,prodhosts
+- hosts: all
 
   vars:
     foo: bar
@@ -7,8 +7,10 @@
       - at
       - vim
       - curl
-      - python-pip
       - git
+    package_list_ubuntu:
+      - python-pip
+      - need-to-make-this-work
 
 
   tasks:
@@ -33,6 +35,17 @@
       group: root
       mode: '0644'
 
+  - name: blockinsert-/etc/bashrc
+    become: yes
+    blockinfile:
+      path: /etc/bashrc
+      block: |
+        # append cm-based rc files:
+        if [ -f /etc/baseline/bashrc ]; then
+           source /etc/baseline/bashrc
+        fi
+    when: ansible_facts['os_family'] == 'RedHat'
+
   - name: blockinsert-/etc/bash.bashrc
     become: yes
     blockinfile:
@@ -42,6 +55,7 @@
         if [ -f /etc/baseline/bashrc ]; then
            source /etc/baseline/bashrc
         fi
+    when: ansible_facts['os_family'] == 'Debian'
 
   - name: check-folders-/installers
     stat:
@@ -89,6 +103,7 @@
     become: yes
     command:
       cmd: 'apt-get update'
+    when: ansible_facts['os_family'] == 'Debian'
 
   - name: package-installs
     become: yes
