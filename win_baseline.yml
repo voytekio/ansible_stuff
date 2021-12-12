@@ -1,0 +1,26 @@
+---
+- hosts: win_servers
+
+  vars:
+    features_list:
+      - Telnet-Client
+      - Windows-Server-Backup
+  vars_prompt:
+    - name: ansible_password
+      prompt: 'admin pass'
+      private: yes
+
+  tasks:
+  - name: try a Windows cmd
+    win_shell: 'hostname'
+    register: response
+
+  - name: show hostname result
+    debug:
+      msg: 'hostname result is:\n{{ response }}'
+
+  - name: install-features
+    ansible.windows.win_feature:
+      name: "{{ features_list }}"
+      state: present
+      include_management_tools: true
