@@ -1,0 +1,16 @@
+---
+- hosts: win_servers
+
+  vars:
+  vars_prompt:
+    - name: ansible_password
+      prompt: 'admin pass'
+      private: yes
+
+  tasks:
+  - name: run a win command (no shell)
+    ansible.windows.win_command: 'wbadmin start backup -backuptarget:d: "-include:c:\program files" -quiet'
+    async: 45
+    poll: 0
+
+
