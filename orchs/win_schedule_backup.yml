@@ -1,0 +1,30 @@
+---
+- hosts: win_servers
+
+  vars:
+  vars_prompt:
+    - name: ansible_password
+      prompt: 'admin pass'
+      private: yes
+
+  tasks:
+  - name: schedule task
+    community.windows.win_scheduled_task:
+      name: backup_repeat_24hrs_at_9_PM
+      description: task set by ansible
+      actions:
+      - path: cmd.exe
+        arguments: '/c wbadmin start backup -backuptarget:d: "-include:c:\program files" -quiet >> winbackup.log'
+      triggers:
+      #- type: daily
+        #start_boundary: '2021-12-21T23:28'
+      - type: time
+        repetition:
+          interval: PT24H
+          #duration: PT5M
+          #stop_at_duration_end: yes
+        start_boundary: '2021-12-22T21:00'
+      username: SYSTEM
+      state: present
+      enabled: yes
+
