@@ -2,6 +2,10 @@
 - hosts: win_servers
 
   vars:
+    - foo: bar
+    - dt: ansible_date_time.epoch
+    - backup_marker_file_loc: 'backup_marker_file.txt'
+    - date_string: {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int )) }}
   vars_prompt:
     - name: ansible_password
       prompt: 'admin pass'
@@ -9,8 +13,19 @@
 
   tasks:
   - name: run a win command (no shell)
-    ansible.windows.win_command: 'wbadmin start backup -backuptarget:d: "-include:c:\program files" -quiet'
-    async: 45
-    poll: 0
+    #ansible.windows.win_command: 'wbadmin start backup -backuptarget:d: "-include:c:\program files" -quiet'
+    #ansible.windows.win_shell: 'echo {{ "%Y-%m-%d" | strftime(ansible_date_time.epoch) }}'
+    #ansible.windows.win_shell: 'echo {{ ( ansible_date_time.epoch | int - ( 86400 * 1 ))  }}'
+    #ansible.windows.win_shell: 'echo {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_date_time.epoch | int - ( 86400 * 1 )))  }}'
+    #ansible.windows.win_shell: 'echo {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts.date_time.epoch | int - ( 86400 * 1 )))  }}'
+    #ansible.windows.win_shell: 'echo {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
+    ansible.windows.win_shell: 'add-content -path {{ backup_marker_file_loc }} -value {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
+    #async: 45
+    #poll: 0
 
+  - name: check for bkp line
+    ansible.windows.win_shell: 'if ((select-string -path {{ backup_marker_file_loc }} -pattern {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int - (86400 * 1) )) }} -quiet) -eq $true){write-host "match success"; exit 0}else{write-host "match failure"; exit 1}'
+  #- name: show local datetime
+    #debug:
+      #var: ansible_facts['date_time']
 
