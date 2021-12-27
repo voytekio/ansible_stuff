@@ -1,0 +1,50 @@
+---
+- hosts: win_servers
+
+  vars:
+    - foo: bar
+    - backup_marker_file_loc: 'backup_marker_file.txt'
+    #- date_string: {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int )) }}
+    - source_backup_dir: 'd:\windowsImageBackup'
+    #- destination_backup_dir: 'c:\temp\restore-12_26_21\source'
+    - destination_backup_dir: 'c:' # root drive only it seems for local bkps :(
+    - recovery_target_dir: 'c:\temp\restore'
+    - backup_version: '12/27/2021-03:24'
+    - empty_dir: 'c:\temp\empty'
+  vars_prompt:
+    - name: ansible_password
+      prompt: 'admin pass'
+      private: yes
+
+  tasks:
+  - name: cp bkp folder to temp restore dir
+    ansible.windows.win_shell: 'copy-item {{ source_backup_dir }} -destination {{ destination_backup_dir }}\WindowsImageBackup -Recurse'
+
+  - name: restore from temp bkp
+    ansible.windows.win_command: 'wbadmin start recovery -version:{{ backup_version }} -backuptarget:{{ destination_backup_dir }} -itemtype:file "-items:c:\users" -recoverytarget:{{ recovery_target_dir }} -quiet -recursive -notRestoreAcl'
+
+  - name: verify backup marker in restored dir
+    ansible.windows.win_shell: 'if ((select-string -path {{ recovery_target_dir }}\Users\Administrator\{{ backup_marker_file_loc }} -pattern {{ "%Y-%m-%d" | strftime( (ansible_facts["date_time"]["epoch_local"] | int - (86400 * 1) )) }} -quiet) -eq $true){write-host "match success"; exit 0}else{write-host "match failure"; exit 1}'
+
+  - name: cleanup destination_bkp dir
+    ansible.windows.win_shell: 'remove-item -recurse -force {{ destination_backup_dir }}\WindowsImageBackup'
+
+  - name: create empty dir for robocopy # needed b/c remove-item has a known bug and we workaround it using robocopy to mirror an empty dir to rm-rf the dir in question
+    ansible.windows.win_file:
+      path: '{{ empty_dir }}'
+      state: directory
+
+  - name: cleanup restore dir using robocopy mirroring
+    ansible.windows.win_command: 'robocopy {{ empty_dir }} {{ recovery_target_dir }} /MIR'
+    register: command_result
+    failed_when: command_result.rc >= 8 # for robocopy every ret code below 8 is ok - https://ss64.com/nt/robocopy-exit.html
+
+    #ansible.windows.win_shell: 'echo {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
+    #ansible.windows.win_shell: 'add-content -path {{ backup_marker_file_loc }} -value {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
+    #async: 45
+    #poll: 0
+
+  #- name: show local datetime
+    #debug:
+      #var: ansible_facts['date_time']
+
