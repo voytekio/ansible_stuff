@@ -16,6 +16,12 @@
       private: yes
 
   tasks:
+  #- name: fail early
+    #fail:
+      #msg: 'failing early'
+    #when:
+      #2 == 2
+
   - name: cp bkp folder to temp restore dir
     ansible.windows.win_shell: 'copy-item {{ source_backup_dir }} -destination {{ destination_backup_dir }}\WindowsImageBackup -Recurse'
 
@@ -49,6 +55,10 @@
     ansible.windows.win_command: 'robocopy {{ empty_dir }} {{ recovery_target_dir }} /MIR'
     register: command_result
     failed_when: command_result.rc >= 8 # for robocopy every ret code below 8 is ok - https://ss64.com/nt/robocopy-exit.html
+
+  - name: store results locally
+    shell: 'echo {{ "%Y-%m-%d" | strftime(ansible_facts["date_time"]["epoch_local"]) }}  >> /tmp/backup_verify_status.txt'
+    delegate_to: 127.0.0.1
 
     #ansible.windows.win_shell: 'echo {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
     #ansible.windows.win_shell: 'add-content -path {{ backup_marker_file_loc }} -value {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'

@@ -1,0 +1,62 @@
+---
+- hosts: win_servers
+  gather_facts: False
+
+  vars:
+    - backup_marker_file_loc: 'backup_marker_file.txt'
+    #- date_string: {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int )) }}
+    - source_backup_dir: 'd:\windowsImageBackup'
+    #- destination_backup_dir: 'c:\temp\restore-12_26_21\source'
+    - destination_backup_dir: 'c:' # root drive only it seems for local bkps :(
+    - recovery_target_dir: 'c:\temp\restore'
+    - backup_version: '12/27/2021-03:24'
+    - empty_dir: 'c:\temp\empty'
+  vars_prompt:
+    - name: ansible_password
+      prompt: 'admin pass'
+      private: yes
+
+  tasks:
+  - name: version list
+    ansible.windows.win_shell: 'wbadmin get versions | findstr /i "version identifier" | select -last 1'
+    register: response_version_list
+
+  - name: show version_list
+    debug:
+      msg: 'version list is: {{ response_version_list["stdout"] }}'
+
+  - name: run_win_gitbash_cmd
+    #ansible.windows.win_command: '"c:\\Program Files\\Git\\bin\\bash.exe" -c "hostname | cut -d \"-\" -f1"'
+    ansible.windows.win_command: '"c:\\Program Files\\Git\\bin\\bash.exe" -c "wbadmin get versions | grep \"Version identifier\" | tail -1 | cut -d\" \" -f3"'
+    register: wbadmin_version_id
+
+  - name: out val
+    debug:
+      msg: 'it is: {{ wbadmin_version_id.stdout | trim }}'
+
+  - name: try local shell cmd
+    shell: 'echo {{ wbadmin_version_id.stdout | trim }}  > /tmp/wbadmin_version.txt'
+    delegate_to: 127.0.0.1
+
+
+#  - name: cut it
+#    voytek_io.winbackup.win_cut:
+#      name: 'bull'
+#      new: true
+#      linein: "Version identifier: 12/27/2021-03:24"
+#      delimiter: " "
+#      fields: 2,3
+
+  #- name: cleanup destination_bkp dir
+    #ansible.windows.win_shell: 'remove-item -recurse -force {{ destination_backup_dir }}\WindowsImageBackup'
+
+    #ansible.windows.win_shell: 'echo {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
+
+    #ansible.windows.win_shell: 'add-content -path {{ backup_marker_file_loc }} -value {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
+    #async: 45
+    #poll: 0
+
+  #- name: show local datetime
+    #debug:
+      #var: ansible_facts['date_time']
+
