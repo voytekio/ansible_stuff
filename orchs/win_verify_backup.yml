@@ -10,6 +10,7 @@
     - recovery_target_dir: 'c:\temp\restore'
     #- backup_version: '12/27/2021-03:24'
     - empty_dir: 'c:\temp\empty'
+    - destination_local: false
   vars_prompt:
     - name: ansible_password
       prompt: 'admin pass'
@@ -24,17 +25,15 @@
 
   - name: cp bkp folder to temp restore dir
     ansible.windows.win_shell: 'copy-item {{ source_backup_dir }} -destination {{ destination_backup_dir }}\WindowsImageBackup -Recurse'
+    when: destination_local | bool
 
   - name: get latest backup id
-    ansible.windows.win_command: '"c:\\Program Files\\Git\\bin\\bash.exe" -c "wbadmin     get versions | grep \"Version identifier\" | tail -1 | cut -d\" \" -f3"'
+    ansible.windows.win_command: '"c:\\Program Files\\Git\\bin\\bash.exe" -c "wbadmin get versions -backuptarget:{{ destination_backup_dir }} | grep \"Version identifier\" | tail -1 | cut -d\" \" -f3"'
     register: backup_version
 
   - name: output latest backup id
     debug:
       msg: 'backup id is: {{ backup_version.stdout | trim }}'
-
-  #- name: stop early
-    #ansible.windows.win_shell: 'foo bar baz'
 
   - name: restore from temp bkp
     ansible.windows.win_command: 'wbadmin start recovery -version:{{ backup_version.stdout | trim }} -backuptarget:{{ destination_backup_dir }} -itemtype:file "-items:c:\users" -recoverytarget:{{ recovery_target_dir }} -quiet -recursive -notRestoreAcl'
@@ -44,6 +43,7 @@
 
   - name: cleanup destination_bkp dir
     ansible.windows.win_shell: 'remove-item -recurse -force {{ destination_backup_dir }}\WindowsImageBackup'
+    when: destination_local | bool
 
   - name: create empty dir for robocopy # needed b/c remove-item has a known bug and we workaround it using robocopy to mirror an empty dir to rm-rf the dir in question
     # search for 'known issue' https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.management/remove-item
