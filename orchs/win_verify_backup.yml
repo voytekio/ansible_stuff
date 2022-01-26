@@ -2,7 +2,8 @@
 - hosts: win_servers
 
   vars:
-    - backup_marker_file_loc: 'backup_marker_file.txt'
+    - backup_marker_file_loc: 'temp'
+    - backup_marker_file_name: 'backup_marker.txt'
     #- date_string: {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int )) }}
     - source_backup_dir: 'd:\windowsImageBackup'
     #- destination_backup_dir: 'c:\temp\restore-12_26_21\source'
@@ -36,10 +37,10 @@
       msg: 'backup id is: {{ backup_version.stdout | trim }}'
 
   - name: restore from temp bkp
-    ansible.windows.win_command: 'wbadmin start recovery -version:{{ backup_version.stdout | trim }} -backuptarget:{{ destination_backup_dir }} -itemtype:file "-items:c:\users" -recoverytarget:{{ recovery_target_dir }} -quiet -recursive -notRestoreAcl'
+    ansible.windows.win_command: 'wbadmin start recovery -version:{{ backup_version.stdout | trim }} -backuptarget:{{ destination_backup_dir }} -itemtype:file "-items:c:\temp" -recoverytarget:{{ recovery_target_dir }} -quiet -recursive -notRestoreAcl'
 
   - name: verify backup marker in restored dir
-    ansible.windows.win_shell: 'if ((select-string -path {{ recovery_target_dir }}\Users\Administrator\{{ backup_marker_file_loc }} -pattern {{ "%Y-%m-%d" | strftime( (ansible_facts["date_time"]["epoch_local"] | int - (86400 * 1) )) }} -quiet) -eq $true){write-host "match success"; exit 0}else{write-host "match failure"; exit 1}'
+    ansible.windows.win_shell: 'if ((select-string -path {{ recovery_target_dir }}\{{ backup_marker_file_loc }}\{{ backup_marker_file_name }} -pattern {{ "%m/%d/%Y" | strftime( (ansible_facts["date_time"]["epoch_local"] | int - (86400 * 1) )) }} -quiet) -eq $true){write-host "match success"; exit 0}else{write-host "match failure"; exit 1}'
 
   - name: cleanup destination_bkp dir
     ansible.windows.win_shell: 'remove-item -recurse -force {{ destination_backup_dir }}\WindowsImageBackup'
