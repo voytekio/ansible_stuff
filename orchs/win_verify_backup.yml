@@ -2,20 +2,22 @@
 - hosts: win_servers
 
   vars:
-    - backup_marker_file_loc: 'temp'
+    - backup_marker_file_loc: 'administrator'
+    - backup_marker_file_loc_full: 'c:\users\administrator'
     - backup_marker_file_name: 'backup_marker.txt'
     #- date_string: {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int )) }}
-    - source_backup_dir: 'd:\windowsImageBackup'
-    #- destination_backup_dir: 'c:\temp\restore-12_26_21\source'
-    - destination_backup_dir: 'c:' # root drive only it seems for local bkps :(
+    #- source_backup_dir: 'd:\windowsImageBackup'
+    #- destination_backup_dir: 'c:' # root drive only it seems for local bkps :(
     - recovery_target_dir: 'c:\temp\restore'
     #- backup_version: '12/27/2021-03:24'
     - empty_dir: 'c:\temp\empty'
     - destination_local: false
+  vars_files:
+    - ../vars_sec.yml
   vars_prompt:
-    - name: ansible_password
-      prompt: 'admin pass'
-      private: yes
+    #- name: ansible_password
+      #prompt: 'admin pass'
+      #private: yes
 
   tasks:
   #- name: fail early
@@ -29,7 +31,10 @@
     when: destination_local | bool
 
   - name: get latest backup id
-    ansible.windows.win_command: '"c:\\Program Files\\Git\\bin\\bash.exe" -c "wbadmin get versions -backuptarget:{{ destination_backup_dir }} | grep \"Version identifier\" | tail -1 | cut -d\" \" -f3"'
+    ansible.windows.win_command: '"c:\Program Files\Git\bin\bash.exe" -c "wbadmin get versions -backuptarget:{{ destination_backup_dir_long }} | grep \"Version identifier\" | tail -1 | cut -d\" \" -f3"'
+    become: yes
+    become_user: "{{ become_win_user }}"
+    become_method: runas
     register: backup_version
 
   - name: output latest backup id
@@ -37,10 +42,16 @@
       msg: 'backup id is: {{ backup_version.stdout | trim }}'
 
   - name: restore from temp bkp
-    ansible.windows.win_command: 'wbadmin start recovery -version:{{ backup_version.stdout | trim }} -backuptarget:{{ destination_backup_dir }} -itemtype:file "-items:c:\temp" -recoverytarget:{{ recovery_target_dir }} -quiet -recursive -notRestoreAcl'
+    ansible.windows.win_command: 'wbadmin start recovery -version:{{ backup_version.stdout | trim }} -backuptarget:{{ destination_backup_dir }} -itemtype:file "-items:{{ backup_marker_file_loc_full }}" -recoverytarget:{{ recovery_target_dir }} -quiet -recursive -notRestoreAcl'
+    become: yes
+    become_user: "{{ become_win_user }}"
+    become_method: runas
+    #when: 2 == 3
 
   - name: verify backup marker in restored dir
-    ansible.windows.win_shell: 'if ((select-string -path {{ recovery_target_dir }}\{{ backup_marker_file_loc }}\{{ backup_marker_file_name }} -pattern {{ "%m/%d/%Y" | strftime( (ansible_facts["date_time"]["epoch_local"] | int - (86400 * 1) )) }} -quiet) -eq $true){write-host "match success"; exit 0}else{write-host "match failure"; exit 1}'
+    ansible.windows.win_shell: 'if ((select-string -path {{ recovery_target_dir }}\{{ backup_marker_file_loc }}\{{ backup_marker_file_name }} -pattern {{ "%m/%d/%Y" | strftime( (ansible_facts["date_time"]["epoch_local"] | int - (86400 * 1) )) }} -quiet) -eq $true){write-host "match success"; exit 0}else{write-host "match failure"; exit 0}'
+    register: verify_output
+    ignore_errors: true # this is needed since the select-string itself may bail out before the if conditional evaluates
 
   - name: cleanup destination_bkp dir
     ansible.windows.win_shell: 'remove-item -recurse -force {{ destination_backup_dir }}\WindowsImageBackup'
@@ -57,9 +68,17 @@
     register: command_result
     failed_when: command_result.rc >= 8 # for robocopy every ret code below 8 is ok - https://ss64.com/nt/robocopy-exit.html
 
-  - name: store results locally
-    shell: 'echo {{ "%Y-%m-%d" | strftime(ansible_facts["date_time"]["epoch_local"]) }}  >> /tmp/backup_verify_status.txt'
+  - name: store success results locally
+    shell: 'echo {{ "%Y-%m-%d" | strftime(ansible_facts["date_time"]["epoch_local"]) }} success >> /tmp/backup_verify_status.txt'
     delegate_to: 127.0.0.1
+    when:
+      verify_output.stdout.find('success') != -1
+
+  - name: store failed results locally
+    shell: 'echo {{ "%Y-%m-%d" | strftime(ansible_facts["date_time"]["epoch_local"]) }} failure >> /tmp/backup_verify_status.txt'
+    delegate_to: 127.0.0.1
+    when:
+      verify_output.stdout.find('success') == -1
 
     #ansible.windows.win_shell: 'echo {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
     #ansible.windows.win_shell: 'add-content -path {{ backup_marker_file_loc }} -value {{ "%Y-%m-%d-%H-%M-%S" | strftime( (ansible_facts["date_time"]["epoch_local"] | int ))  }}'
