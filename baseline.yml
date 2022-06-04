@@ -9,8 +9,8 @@
       - curl
       - git
     package_list_ubuntu:
-      - python-pip
-      - need-to-make-this-work
+      - python3-pip
+      - python3-venv
 
 
   tasks:
@@ -110,3 +110,10 @@
     package:
       name: "{{ package_list }}"
       state: present
+
+  - name: package-installs-ubuntu
+    become: yes
+    package:
+      name: "{{ package_list_ubuntu }}"
+      state: present
+    when: ansible_facts['os_family'] == 'Debian'
