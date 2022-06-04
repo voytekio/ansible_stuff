@@ -1,0 +1,29 @@
+---
+- hosts: linux_all
+
+  vars:
+    package_list:
+      - apcupsd
+
+  tasks:
+          #
+  # TODO: chain this to run as a Prerequisite for package-installs
+  - name: cmd-update-repo-catalog
+    become: yes
+    command:
+      cmd: 'apt-get update'
+    when: ansible_facts['os_family'] == 'Debian'
+
+  - name: package-installs
+    become: yes
+    package:
+      name: "{{ package_list }}"
+      state: present
+
+  - name: comment out DEVICE line
+    lineinfile:
+      path: /etc/apcupsd/apcupsd.conf
+      search_string: "DEVICE /dev/ttyS0"
+      line: "#DEVICE /dev/ttyS0"
+      backup: true
+    become: yes
